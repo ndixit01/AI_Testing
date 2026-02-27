@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver Application</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+      padding: 2rem;
+      width: 100%;
+      max-width: 680px;
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: #444; border-bottom: 1px solid #eee; padding-bottom: 0.4rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 0.8rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    label .req { color: #e53e3e; margin-left: 2px; }
+    input, select {
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      transition: border-color 0.15s;
+      background: #fafafa;
+    }
+    input:focus, select:focus { outline: none; border-color: #4f46e5; background: #fff; }
+    .upload-area {
+      border: 2px dashed #c7d2fe;
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: #f8f9ff;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .upload-area:hover, .upload-area.dragover { border-color: #4f46e5; background: #eef2ff; }
+    .upload-area input[type="file"] { display: none; }
+    .upload-label { font-size: 0.9rem; color: #555; }
+    .upload-label strong { color: #4f46e5; cursor: pointer; }
+    .file-list { margin-top: 0.75rem; list-style: none; }
+    .file-list li {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.85rem; color: #333; padding: 0.3rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .file-list li:last-child { border-bottom: none; }
+    .remove-file { color: #e53e3e; cursor: pointer; font-size: 1rem; line-height: 1; border: none; background: none; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.85rem;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      transition: background 0.15s;
+    }
+    .btn:hover:not(:disabled) { background: #4338ca; }
+    .btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .alert {
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .alert.error { background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; }
+    .alert.success { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
+    .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-screen { text-align: center; padding: 3rem 0; }
+    #error-screen { display: none; }
+    #form-screen { display: none; }
+    #success-screen { display: none; text-align: center; padding: 2rem 0; }
+    .success-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    .audit-id { font-family: monospace; font-size: 0.8rem; color: #888; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- Loading -->
+    <div id="loading-screen">
+      <div class="spinner" style="border-color:rgba(79,70,229,0.3);border-top-color:#4f46e5;width:2rem;height:2rem;border-width:3px;"></div>
+      <p style="margin-top:1rem;color:#666;">Verifying your link&hellip;</p>
+    </div>
+
+    <!-- Link error -->
+    <div id="error-screen">
+      <h1>Link Invalid or Expired</h1>
+      <p class="subtitle">This link is no longer valid. Please contact your coordinator to request a new one.</p>
+    </div>
+
+    <!-- Application form -->
+    <form id="form-screen" enctype="multipart/form-data" novalidate>
+      <input type="hidden" id="token" name="token" />
+
+      <h1>Driver Application</h1>
+      <p class="subtitle">Please complete all required fields and upload your documents.</p>
+
+      <h2>Personal Information</h2>
+      <div class="grid">
+        <div class="field">
+          <label>First Name <span class="req">*</span></label>
+          <input type="text" name="first_name" required autocomplete="given-name" />
+        </div>
+        <div class="field">
+          <label>Last Name <span class="req">*</span></label>
+          <input type="text" name="last_name" required autocomplete="family-name" />
+        </div>
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <input type="email" name="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label>Phone <span class="req">*</span></label>
+          <input type="tel" name="phone" required autocomplete="tel" placeholder="(555) 555-5555" />
+        </div>
+        <div class="field">
+          <label>Date of Birth <span class="req">*</span></label>
+          <input type="date" name="date_of_birth" required />
+        </div>
+      </div>
+
+      <h2>TLC &amp; DMV Licensing</h2>
+      <div class="grid">
+        <div class="field">
+          <label>TLC License Number <span class="req">*</span></label>
+          <input type="text" name="tlc_license_number" required />
+        </div>
+        <div class="field">
+          <label>TLC Expiration Date <span class="req">*</span></label>
+          <input type="date" name="tlc_expiration_date" required />
+        </div>
+        <div class="field">
+          <label>DMV License Number <span class="req">*</span></label>
+          <input type="text" name="dmv_license_number" required />
+        </div>
+        <div class="field">
+          <label>DMV License State <span class="req">*</span></label>
+          <select name="dmv_license_state" required>
+            <option value="">Select state&hellip;</option>
+            <option>NY</option><option>NJ</option><option>CT</option>
+            <option>PA</option><option>FL</option><option>CA</option>
+            <option>TX</option><option>IL</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <h2>Vehicle Information <span style="font-weight:400;font-size:0.85rem;color:#999">(if applicable)</span></h2>
+      <div class="grid">
+        <div class="field full">
+          <label>VIN</label>
+          <input type="text" name="vehicle_vin" maxlength="17" placeholder="17-character VIN" />
+        </div>
+        <div class="field">
+          <label>Year</label>
+          <input type="number" name="vehicle_year" min="2000" max="2030" placeholder="e.g. 2022" />
+        </div>
+        <div class="field">
+          <label>Make</label>
+          <input type="text" name="vehicle_make" placeholder="e.g. Toyota" />
+        </div>
+        <div class="field">
+          <label>Model</label>
+          <input type="text" name="vehicle_model" placeholder="e.g. Camry" />
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <input type="text" name="vehicle_color" />
+        </div>
+        <div class="field">
+          <label>License Plate</label>
+          <input type="text" name="vehicle_plate" />
+        </div>
+      </div>
+
+      <h2>Insurance <span style="font-weight:400;font-size:0.85rem;color:#999">(if applicable)</span></h2>
+      <div class="grid">
+        <div class="field">
+          <label>Carrier</label>
+          <input type="text" name="insurance_carrier" />
+        </div>
+        <div class="field">
+          <label>Policy Number</label>
+          <input type="text" name="insurance_policy_number" />
+        </div>
+        <div class="field">
+          <label>Expiration Date</label>
+          <input type="date" name="insurance_expiration_date" />
+        </div>
+      </div>
+
+      <h2>Documents <span class="req">*</span></h2>
+      <p style="font-size:0.85rem;color:#666;margin-bottom:0.75rem;">
+        Upload your TLC license, DMV license, proof of insurance, and any other required documents.
+        Accepted: PDF, JPEG, PNG. Max 20 MB per file.
+      </p>
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="file-input" name="documents" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.webp" />
+        <div class="upload-label">
+          Drag &amp; drop files here or <strong onclick="document.getElementById('file-input').click()">browse</strong>
+        </div>
+        <ul class="file-list" id="file-list"></ul>
+      </div>
+
+      <div class="alert error" id="form-error"></div>
+      <button type="submit" class="btn" id="submit-btn">Submit Application</button>
+    </form>
+
+    <!-- Success -->
+    <div id="success-screen">
+      <div class="success-icon">&#10003;</div>
+      <h1>Application Submitted</h1>
+      <p class="subtitle">Your application has been received and your documents have been securely stored. Your coordinator will be in touch shortly.</p>
+      <p class="audit-id" id="audit-ref"></p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    const screens = {
+      loading: document.getElementById("loading-screen"),
+      error: document.getElementById("error-screen"),
+      form: document.getElementById("form-screen"),
+      success: document.getElementById("success-screen"),
+    };
+
+    function show(screen) {
+      Object.values(screens).forEach(el => el.style.display = "none");
+      screens[screen].style.display = "block";
+    }
+
+    // --- Verify token on load ---
+    (async () => {
+      if (!token) { show("error"); return; }
+      try {
+        const res = await fetch(`/api/links/verify?token=${encodeURIComponent(token)}`);
+        if (!res.ok) { show("error"); return; }
+        const data = await res.json();
+        // Pre-populate known fields
+        document.getElementById("token").value = token;
+        const form = document.getElementById("form-screen");
+        if (data.email) form.querySelector('[name="email"]').value = data.email;
+        if (data.phone) form.querySelector('[name="phone"]').value = data.phone;
+        show("form");
+      } catch {
+        show("error");
+      }
+    })();
+
+    // --- File drag & drop ---
+    const uploadArea = document.getElementById("upload-area");
+    const fileInput = document.getElementById("file-input");
+    const fileList = document.getElementById("file-list");
+    let selectedFiles = new DataTransfer();
+
+    uploadArea.addEventListener("dragover", e => { e.preventDefault(); uploadArea.classList.add("dragover"); });
+    uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("dragover"));
+    uploadArea.addEventListener("drop", e => {
+      e.preventDefault();
+      uploadArea.classList.remove("dragover");
+      addFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener("change", () => addFiles(fileInput.files));
+
+    function addFiles(newFiles) {
+      for (const f of newFiles) selectedFiles.items.add(f);
+      renderFileList();
+    }
+
+    function removeFile(index) {
+      const dt = new DataTransfer();
+      const files = [...selectedFiles.files];
+      files.forEach((f, i) => { if (i !== index) dt.items.add(f); });
+      selectedFiles = dt;
+      renderFileList();
+    }
+
+    function renderFileList() {
+      fileList.innerHTML = "";
+      [...selectedFiles.files].forEach((f, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>&#128206;</span> <span style="flex:1">${f.name}</span> <span style="color:#999;font-size:0.8rem">${(f.size/1024/1024).toFixed(1)} MB</span> <button type="button" class="remove-file" onclick="removeFile(${i})" aria-label="Remove">&times;</button>`;
+        fileList.appendChild(li);
+      });
+      fileInput.files = selectedFiles.files;
+    }
+
+    // --- Form submission ---
+    document.getElementById("form-screen").addEventListener("submit", async e => {
+      e.preventDefault();
+      const form = e.target;
+      const errorEl = document.getElementById("form-error");
+      const btn = document.getElementById("submit-btn");
+      errorEl.style.display = "none";
+
+      if (selectedFiles.files.length === 0) {
+        errorEl.textContent = "Please upload at least one document before submitting.";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Submitting&hellip;';
+
+      const fd = new FormData(form);
+      // Ensure files from our DataTransfer are attached
+      fd.delete("documents");
+      [...selectedFiles.files].forEach(f => fd.append("documents", f));
+
+      try {
+        const res = await fetch("/api/submit/application", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.detail || "Submission failed. Please try again.";
+          errorEl.style.display = "block";
+          btn.disabled = false;
+          btn.textContent = "Submit Application";
+          return;
+        }
+        document.getElementById("audit-ref").textContent = `Reference ID: ${data.audit_event_id}`;
+        show("success");
+      } catch {
+        errorEl.textContent = "Network error. Please check your connection and try again.";
+        errorEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Submit Application";
+      }
+    });
+  </script>
+</body>
+</html>
