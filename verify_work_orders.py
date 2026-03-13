@@ -15,7 +15,7 @@ For each work order:
 Usage:
   1. Install dependencies:  pip install playwright && playwright install chromium
   2. Run:                    python verify_work_orders.py
-  3. Log in manually in the browser window that opens, then press Enter in the terminal.
+  3. Log in in the browser window that opens — the script detects the dashboard automatically.
 """
 
 import asyncio
@@ -103,9 +103,11 @@ async def main() -> None:
 
         print("=" * 60)
         print("Browser is open. Please log in to the application.")
-        print("Once the Dashboard is fully visible, press Enter here.")
+        print("Waiting up to 5 minutes for the dashboard to appear...")
         print("=" * 60)
-        input()
+        # Wait for the dashboard column header — appears only after successful login.
+        await page.wait_for_selector("text=Work Order Verifications", timeout=300_000)
+        print("Dashboard detected! Starting automation...")
 
         processed: set[str] = set()
         total_verified = 0
@@ -175,7 +177,7 @@ async def main() -> None:
             print(f"     Done. ({total_verified} verified so far)")
 
         print("\nScript finished.")
-        input("Press Enter to close the browser...")
+        await page.wait_for_timeout(3000)   # brief pause so you can see the final state
         await browser.close()
 
 
